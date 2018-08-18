@@ -142,6 +142,7 @@ esp_err_t create_udp_client()
 	return ESP_OK;
 }
 
+extern char *sys_tips;
 void send_recv_data(void *pvParameters)
 {
 	ESP_LOGI(TAG, "task send_recv_data start! \n");
@@ -162,6 +163,9 @@ void send_recv_data(void *pvParameters)
 				(struct sockaddr *) &remote_addr, &socklen);
 		//打印接收到的数组
 		ESP_LOGI(TAG, "recvData: %s\n", databuff);
+		if(!strcmp(databuff, "hi")) {
+			send_Buff_with_UDP(sys_tips, strlen(sys_tips));
+		}
 		if (len > 0) {
 			total_data += len;
 			success_pack++;

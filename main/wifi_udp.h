@@ -29,7 +29,7 @@ extern "C" {
  * 自己作为AP热点时候，配置信息如下
  */
 //ssid
-#define AP_SSID "Esp32"
+#define AP_SSID "globalpilotwifi"
 //密码
 #define AP_PAW ""
 //最大连接数

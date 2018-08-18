@@ -117,6 +117,7 @@ void recv_data(void *pvParameters)
     int len = 0;
 
     char databuff[1024];
+    int bReuseaddr=1;
 
     while (1)
     {
@@ -133,6 +134,8 @@ void recv_data(void *pvParameters)
         }
         else {
             show_socket_error_reason("recv_data", connect_socket);
+            //closesocket(connect_socket);
+            setsockopt(connect_socket,SOL_SOCKET ,SO_REUSEADDR,(const char*)&bReuseaddr,sizeof(int));
             g_rxtx_need_restart = true;
             break;
         }
