@@ -8,6 +8,7 @@
 #include "bt_server.h"
 #include "driver/uart.h"
 #include "esp_log.h"
+#include "cmd.h"
 
 #include "wifi_tcp.h"
 #include "wifi_udp.h"

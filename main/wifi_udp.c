@@ -9,12 +9,13 @@
 
 #include "wifi_udp.h"
 #include "wifi_tcp.h"
+#include "uart.h"
 
 /* FreeRTOS event group to signal when we are connected to WiFi and ready to start UDP test*/
 EventGroupHandle_t udp_event_group;
 EventGroupHandle_t tcp_event_group;
 
-static int mysocket;
+int udp_socket;
 
 static struct sockaddr_in remote_addr;
 static unsigned int socklen;
@@ -101,10 +102,10 @@ esp_err_t create_udp_server()
 {
 	ESP_LOGI(TAG, "Create Udp Server succeed port : %d \n", SERVICE_PORT);
 
-	mysocket = socket(AF_INET, SOCK_DGRAM, 0);
+	udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
 
-	if (mysocket < 0) {
-		show_socket_error_reason("create_server", mysocket);
+	if (udp_socket < 0) {
+		show_socket_error_reason("create_server", udp_socket);
 		return ESP_FAIL;
 	}
 	struct sockaddr_in server_addr;
@@ -112,10 +113,10 @@ esp_err_t create_udp_server()
 	server_addr.sin_port = htons(SERVICE_PORT);
 	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	if (bind(mysocket, (struct sockaddr *) &server_addr, sizeof(server_addr))
+	if (bind(udp_socket, (struct sockaddr *) &server_addr, sizeof(server_addr))
 			< 0) {
-		show_socket_error_reason("bind_server", mysocket);
-		close(mysocket);
+		show_socket_error_reason("bind_server", udp_socket);
+		close(udp_socket);
 		return ESP_FAIL;
 	}
 	return ESP_OK;
@@ -128,10 +129,10 @@ esp_err_t create_udp_client()
 	ESP_LOGI(TAG, "connecting to %s:%d",
 	SERVER_IP, SERVICE_PORT);
 
-	mysocket = socket(AF_INET, SOCK_DGRAM, 0);
+	udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
 
-	if (mysocket < 0) {
-		show_socket_error_reason("Create client", mysocket);
+	if (udp_socket < 0) {
+		show_socket_error_reason("Create client", udp_socket);
 		return ESP_FAIL;
 	}
 	/*for client remote_addr is also server_addr*/
@@ -149,6 +150,7 @@ void send_recv_data(void *pvParameters)
 
 	int len;
 	char databuff[1024];
+	struct get_user_data *user_data = malloc(sizeof(struct get_user_data));
 
 	socklen = sizeof(remote_addr);
 	memset(databuff, EXAMPLE_PACK_BYTE_IS, sizeof(databuff));
@@ -159,28 +161,34 @@ void send_recv_data(void *pvParameters)
 		//每次接收都要清空接收数组
 		memset(databuff, 0x00, sizeof(databuff));
 		//开始接收
-		len = recvfrom(mysocket, databuff, sizeof(databuff), 0,
+		len = recvfrom(udp_socket, databuff, sizeof(databuff), 0,
 				(struct sockaddr *) &remote_addr, &socklen);
 		//打印接收到的数组
 		ESP_LOGI(TAG, "recvData: %s\n", databuff);
 		if(!strcmp(databuff, "hi")) {
 			send_Buff_with_UDP(sys_tips, strlen(sys_tips));
 		}
+		if(enter_cmd_state(databuff, len)) {
+			xTaskCreate(cmd_process, "cmd process", 4096, NULL, 5, NULL);
+			break;
+		}
+
 		if (len > 0) {
 			total_data += len;
 			success_pack++;
 		} else {
 			if (LOG_LOCAL_LEVEL >= ESP_LOG_DEBUG) {
-				show_socket_error_reason("send data", mysocket);
+				show_socket_error_reason("send data", udp_socket);
 			}
 		}
 	}
+	vTaskDelete(NULL);
 }
 
 int send_Buff_with_UDP(char *databuff, int length)
 {
 	int result;
-	result = sendto(mysocket, databuff, length, 0,
+	result = sendto(udp_socket, databuff, length, 0,
 			(struct sockaddr *) &remote_addr, sizeof(remote_addr));
 
 	return result;
@@ -199,7 +207,7 @@ int get_socket_error_code(int socket) {
 int check_connected_socket() {
 	int ret;
 	ESP_LOGD(TAG, "check connect_socket");
-	ret = get_socket_error_code(mysocket);
+	ret = get_socket_error_code(udp_socket);
 	if (ret != 0) {
 		ESP_LOGW(TAG, "socket error %d %s", ret, strerror(ret));
 	}
@@ -207,5 +215,5 @@ int check_connected_socket() {
 }
 
 void close_socket() {
-	close(mysocket);
+	close(udp_socket);
 }

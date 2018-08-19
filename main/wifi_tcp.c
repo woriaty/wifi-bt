@@ -18,6 +18,8 @@
 
 #include "wifi_tcp.h"
 #include "wifi_udp.h"
+#include "uart.h"
+#include "cmd.h"
 
 /*socket*/
 static int server_socket = 0;
@@ -115,9 +117,8 @@ void send_data(void *pvParameters)
 void recv_data(void *pvParameters)
 {
     int len = 0;
-
     char databuff[1024];
-    int bReuseaddr=1;
+    int bReuseaddr = 0;
 
     while (1)
     {
@@ -134,21 +135,21 @@ void recv_data(void *pvParameters)
         }
         else {
             show_socket_error_reason("recv_data", connect_socket);
-            //closesocket(connect_socket);
-            setsockopt(connect_socket,SOL_SOCKET ,SO_REUSEADDR,(const char*)&bReuseaddr,sizeof(int));
-            g_rxtx_need_restart = true;
+            //g_rxtx_need_restart = true;
             break;
         }
     }
 
     close_tcp_socket();
+    //allow the bind address reuse
+    //setsockopt(connect_socket,SOL_SOCKET ,SO_REUSEADDR,(const int*)&bReuseaddr,sizeof(int));
+    //setsockopt(server_socket,SOL_SOCKET ,SO_REUSEADDR,(const int*)&bReuseaddr,sizeof(int));
     g_rxtx_need_restart = true;
     vTaskDelete(NULL);
 }
 
 esp_err_t create_tcp_server(bool isCreatServer)
 {
-
     if (isCreatServer)
     {
         ESP_LOGI(TAG, "server socket....,port=%d", TCP_PORT);
@@ -191,6 +192,59 @@ esp_err_t create_tcp_server(bool isCreatServer)
     /*connection established锛宯ow can send/recv*/
     ESP_LOGI(TAG, "tcp connection established!");
     return ESP_OK;
+}
+
+//this task establish a TCP connection and receive data from TCP
+void tcp_conn(void *pvParameters)
+{
+	struct sys_data *wifi_bt_data = pvParameters;
+	g_rxtx_need_restart = false;
+    ESP_LOGI(TAG, "task tcp_conn...");
+
+    /*wating for connecting to AP*/
+    xEventGroupWaitBits(tcp_event_group, WIFI_CONNECTED_BIT, false, true, portMAX_DELAY);
+    TaskHandle_t tx_rx_task = NULL;
+    wifi_bt_data->wifi_tcp_enabled = ENABLE;
+    xEventGroupSetBits(uart_event_group, UART_CONNECTED_BIT);
+
+    ESP_LOGI(TAG, "tcp_server will start after 3s...");
+    vTaskDelay(3000 / portTICK_RATE_MS);
+    ESP_LOGI(TAG, "create_tcp_server.");
+    int socket_ret = create_tcp_server(true);
+    if (socket_ret == ESP_FAIL) {
+    	ESP_LOGI(TAG, "create tcp socket error,stop...");
+        //continue;
+    	goto tcp_fail;
+    }
+    else {
+        ESP_LOGI(TAG, "create tcp socket succeed...");
+    }
+
+    if (pdPASS != xTaskCreate(&recv_data, "recv_data", 4096, NULL, 4, &tx_rx_task)) {
+        ESP_LOGI(TAG, "Recv task create fail!");
+    }
+    else {
+        ESP_LOGI(TAG, "Recv task create succeed!");
+    }
+
+    while (1) {
+        vTaskDelay(3000 / portTICK_RATE_MS);
+
+        if (g_rxtx_need_restart) {
+        	ESP_LOGE(TAG, "tcp server send or receive task encoutner error, need to restart...");
+
+        	if (ESP_FAIL != create_tcp_server(true)) {
+        		if (pdPASS != xTaskCreate(&recv_data, "recv_data", 4096, NULL, 4, &tx_rx_task)) {
+        			ESP_LOGE(TAG, "tcp server Recv task create fail!");
+        		} else {
+                    ESP_LOGE(TAG, "tcp server Recv task create succeed!");
+                }
+        	}
+        }
+	}
+
+tcp_fail:
+	vTaskDelete(NULL);
 }
 
 int check_working_socket()

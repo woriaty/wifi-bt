@@ -18,7 +18,6 @@ extern "C" {
 #define EXAMPLE_PACK_BYTE_IS 97 //'a'
 
 #define TCP_SERVER_CLIENT_OPTION true  //true will start softap and create tcp server
-#define TAG "wifi&bt-->"
 
 #define TCP_PORT 8266
 
@@ -56,6 +55,8 @@ int show_socket_error_reason(const char* str, int socket);
 int check_working_socket();
 
 int send_buff_with_tcp(char *databuff, int length);
+
+void tcp_conn(void *pvParameters);
 
 
 #ifdef __cplusplus

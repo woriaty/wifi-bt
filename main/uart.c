@@ -18,9 +18,8 @@ void uart_task(void *pvParameters)
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
         //.rx_flow_ctrl_thresh = 122,
     };
-    //Configure UART1 parameters
+
     uart_param_config(uart_num, &uart_config);
-    //Set UART1 pins(TX: IO4, RX: I05, RTS: IO18, CTS: IO19)
     uart_set_pin(uart_num, ECHO_TEST_TXD, ECHO_TEST_RXD, ECHO_TEST_RTS, ECHO_TEST_CTS);
     //Install UART driver (we don't need an event queue here)
     //In this example we don't even use a buffer for sending data.

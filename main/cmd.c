@@ -1,4 +1,13 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
 #include "cmd.h"
+#include "esp_log.h"
+#include "uart.h"
 
 char *sys_tips = "\
 Welcom to esp32 system!\n \
@@ -11,18 +20,120 @@ You can use these commands to change functions:\n\
 6. set ip gateway [192.168.1.1]\n\
 7. set ip netmask [255.255.255.0]\n\
 8. set ip dhcp [4]\n \
-9. set tcp -- switch to tcp/ip mode\n \
-10. set udp -- switch to udp mode\n \
-11. set bt  -- switch to bluetooth mode\n \
-12. hi		 -- show this welcom message\n \
+9. hi\n	\
 Have a nice day!\n";
 
-int get_cmd_header(char *str)
+char *cmd_entry = "$$$";
+char *cmd_type[] = {"set uart b ",\
+					"set wlan join ",\
+					"set wlan chan ",\
+					"set ip dhcp ",\
+					"set apmode ssid ",\
+					"set ip address",\
+					"set ip gateway ",\
+					"set ip netmask ",\
+};
+#define INT_TYPE_LEN	4
+
+struct cmd_node {
+	int current_state;
+	char *data;
+};
+
+int cmd_state = 0;
+
+struct cmd_node cmd_data;
+
+int get_cmd_header(const char *str)
 {
 	return 0;
 }
 
-char *get_cmd(char *str)
+int enter_cmd_state(const char *str, int len)
 {
-	return NULL;
+	if(!memcmp(str, cmd_entry, len)) {
+		ESP_LOGE(TAG, "Enter command mode..\n");
+		return 1;
+	}
+	return 0;
+}
+
+/*
+ * set user data
+ * str: string value which need to process
+ * user_data: user data which need to set
+ * return the cmd type.
+ */
+int cmd_set_user_data(const char *str, struct get_user_data *user_data)
+{
+	int len, i;
+	char *char_data = NULL;
+	int int_data = 0;
+	char data_send[50];
+
+	for(i=0; i<ARRAY_SIZE(cmd_type); i++) {
+		len = strlen(cmd_type[i]);
+		if(!memcmp(cmd_type[i], str, len)) {
+			char_data = str + len;
+			ESP_LOGE(TAG, "Got char data: %s\n", char_data);
+			if(i < INT_TYPE_LEN) {
+				int_data = atoi(char_data);
+				ESP_LOGE(TAG, "Got int data: %d\n", int_data);
+			}
+			switch(i) {
+			case UART:
+				user_data->uart_buand = int_data;
+				ESP_LOGE(TAG, "uart_buand: %d\n", user_data->uart_buand);
+				sprintf(data_send, "uart_buand: %d\n", user_data->uart_buand);
+				send(udp_socket, data_send, strlen(data_send), 0);
+				break;
+			case WIFI_JOIN:
+				user_data->wifi_join = int_data;
+				ESP_LOGE(TAG, "wifi_join: %d\n", user_data->wifi_join);
+				break;
+			case WIFI_CH:
+				user_data->wifi_chan = int_data;
+				ESP_LOGE(TAG, "wifi_chan: %d\n", user_data->wifi_chan);
+				break;
+			case WIFI_DHCP:
+				user_data->wifi_dhcp = int_data;
+				ESP_LOGE(TAG, "wifi_dhcp: %d\n", user_data->wifi_dhcp);
+				break;
+			case WIFI_SSID:
+				user_data->wifi_ssid = char_data;
+				ESP_LOGE(TAG, "wifi_ssid: %s\n", user_data->wifi_ssid);
+				break;
+			case WIFI_ADDR:
+				user_data->wifi_address = char_data;
+				ESP_LOGE(TAG, "wifi_address: %s\n", user_data->wifi_address);
+				break;
+			case WIFI_GW:
+				user_data->wifi_gateway = char_data;
+				ESP_LOGE(TAG, "wifi_gateway: %s\n", user_data->wifi_gateway);
+				break;
+			case WIFI_NM:
+				user_data->wifi_netmask = char_data;
+				ESP_LOGE(TAG, "wifi_netmask: %s\n", user_data->wifi_netmask);
+				break;
+			}
+			return i;
+		}
+	}
+	return -1;
+}
+
+void cmd_process(void *pvParameters)
+{
+	char databuff[1024];
+	int len = 0;
+	struct get_user_data *user_data = malloc(sizeof(struct get_user_data));
+
+	ESP_LOGI(TAG, "%s\n", __func__);
+
+	memset(databuff, EXAMPLE_PACK_BYTE_IS, sizeof(databuff));
+	while(1) {
+		memset(databuff, 0x00, sizeof(databuff));
+		len = recv(udp_socket, databuff, sizeof(databuff), 0);
+		cmd_set_user_data(databuff, user_data);
+	}
 }

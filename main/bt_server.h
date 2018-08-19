@@ -14,11 +14,7 @@
 #define SPP_SHOW_SPEED 1
 #define SPP_SHOW_MODE SPP_SHOW_DATA    /*Choose show mode: show data or speed*/
 
-#if (SPP_SHOW_MODE == SPP_SHOW_DATA)
 #define SPP_DATA_LEN 20
-#else
-#define SPP_DATA_LEN ESP_SPP_MAX_MTU
-#endif
 
 struct sys_data {
 	int wifi_tcp_enabled;

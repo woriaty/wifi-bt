@@ -24,14 +24,12 @@
 #include "time.h"
 #include "sys/time.h"
 #include "bt_server.h"
+#include "cmd.h"
 
 char *uart_str = "for uart test\n";
 char *start_str = "ESP_SPP_SRV_OPEN_EVT\n";
 
 static const esp_spp_mode_t esp_spp_mode = ESP_SPP_MODE_CB;
-
-static struct timeval time_new, time_old;
-static long data_num = 0;
 
 static const esp_spp_sec_t sec_mask = ESP_SPP_SEC_AUTHENTICATE;
 static const esp_spp_role_t role_slave = ESP_SPP_ROLE_SLAVE;
@@ -65,18 +63,10 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         ESP_LOGI(SPP_TAG, "ESP_SPP_CL_INIT_EVT");
         break;
     case ESP_SPP_DATA_IND_EVT:
-#if (SPP_SHOW_MODE == SPP_SHOW_DATA)
         ESP_LOGI(SPP_TAG, "ESP_SPP_DATA_IND_EVT len=%d handle=%d",
                  param->data_ind.len, param->data_ind.handle);
         esp_log_buffer_hex("",param->data_ind.data,param->data_ind.len);
         ESP_LOGI(SPP_TAG, "data: %s\n", param->data_ind.data);
-#else
-        gettimeofday(&time_new, NULL);
-        data_num += param->data_ind.len;
-        if (time_new.tv_sec - time_old.tv_sec >= 3) {
-            print_speed();
-        }
-#endif
         break;
     case ESP_SPP_CONG_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_CONG_EVT");
@@ -90,7 +80,6 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         memcpy(connector_data, param, sizeof(*param));
         ESP_LOGI(SPP_TAG, "got handle: %d\n", connector_data->srv_open.handle);
         xEventGroupSetBits(uart_event_group, UART_CONNECTED_BIT);
-        gettimeofday(&time_old, NULL);
         break;
     default:
         break;
