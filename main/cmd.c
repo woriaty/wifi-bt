@@ -40,6 +40,8 @@ struct cmd_node {
 	char *data;
 };
 
+char *prompt = "$>";
+
 int cmd_state = 0;
 
 struct cmd_node cmd_data;
@@ -136,4 +138,14 @@ void cmd_process(void *pvParameters)
 		len = recv(udp_socket, databuff, sizeof(databuff), 0);
 		cmd_set_user_data(databuff, user_data);
 	}
+}
+
+int cmd_cli(struct cmd_ops *ops, const char *buff)
+{
+	int len = strlen(buff);
+	if(!memcmp(&buff[len-1], "\n", strlen("\n"))) {
+		ops->cmd_send(buff);
+		ops->cmd_send(prompt);
+	}
+	return 0;
 }

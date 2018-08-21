@@ -29,8 +29,6 @@ static unsigned int socklen = sizeof(client_addr);
 static int connect_socket = 0;
 bool g_rxtx_need_restart = false;
 
-int g_total_data = 0;
-
 #if EXAMPLE_ESP_TCP_PERF_TX && EXAMPLE_ESP_TCP_DELAY_INFO
 
 int g_total_pack = 0;
@@ -113,13 +111,27 @@ void send_data(void *pvParameters)
     vTaskDelete(NULL);
 }
 
+int tcp_cmd_send(const char *buff)
+{
+	send(connect_socket, buff, strlen(buff), 0);
+	return 0;
+}
+
+struct cmd_ops tcp_cmd_ops = {
+	.cmd_send = tcp_cmd_send,
+};
+
 //receive data
 void recv_data(void *pvParameters)
 {
     int len = 0;
-    char databuff[1024];
-    int bReuseaddr = 0;
+    char databuff[100];
+    char last_data[100];
+    int total_len = 0;
+    char *hi = "hello\n";
 
+    send(connect_socket, hi, strlen(hi), 0);
+    send(connect_socket, prompt, strlen(prompt), 0);
     while (1)
     {
     	//每次接收都要清空接收数组
@@ -127,17 +139,17 @@ void recv_data(void *pvParameters)
         len = recv(connect_socket, databuff, sizeof(databuff), 0);
         g_rxtx_need_restart = false;
         if (len > 0) {
-            g_total_data += len;
+        	total_len += len;
             //打印接收到的数组
             ESP_LOGI(TAG, "recvData: %s\n", databuff);
-            //原路返回，不指定某个客户端
-            //send(connect_socket, databuff, sizeof(databuff), 0);
+            cmd_cli(&tcp_cmd_ops, databuff);
         }
         else {
             show_socket_error_reason("recv_data", connect_socket);
             //g_rxtx_need_restart = true;
             break;
         }
+        //vTaskDelay(300 / portTICK_RATE_MS);
     }
 
     close_tcp_socket();
