@@ -94,5 +94,5 @@ void app_main(void)
 	xTaskCreate(&tcp_conn, "tcp_conn", 4096, wifi_bt_data, 5, NULL);
 
 	bt_server_init();
-	xTaskCreate(&uart_task, "uart_send_task", 2048, wifi_bt_data, 10, NULL);
+	xTaskCreate(&uart_task, "uart_send_task", 4096, wifi_bt_data, 10, NULL);
 }

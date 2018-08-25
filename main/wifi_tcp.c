@@ -111,9 +111,9 @@ void send_data(void *pvParameters)
     vTaskDelete(NULL);
 }
 
-int tcp_cmd_send(const char *buff)
+int tcp_cmd_send(int port, const char *buff, int len)
 {
-	send(connect_socket, buff, strlen(buff), 0);
+	send(port, buff, len, 0);
 	return 0;
 }
 
@@ -126,8 +126,6 @@ void recv_data(void *pvParameters)
 {
     int len = 0;
     char databuff[100];
-    char last_data[100];
-    int total_len = 0;
     char *hi = "hello\n";
 
     send(connect_socket, hi, strlen(hi), 0);
@@ -139,17 +137,17 @@ void recv_data(void *pvParameters)
         len = recv(connect_socket, databuff, sizeof(databuff), 0);
         g_rxtx_need_restart = false;
         if (len > 0) {
-        	total_len += len;
             //打印接收到的数组
-            ESP_LOGI(TAG, "recvData: %s\n", databuff);
-            cmd_cli(&tcp_cmd_ops, databuff);
+            ESP_LOGI(TAG, "recvData: %s", databuff);
+            tcp_cmd_ops.port = connect_socket;
+            cmd_cli(&tcp_cmd_ops, databuff, len);
         }
         else {
             show_socket_error_reason("recv_data", connect_socket);
             //g_rxtx_need_restart = true;
             break;
         }
-        //vTaskDelay(300 / portTICK_RATE_MS);
+        vTaskDelay(300 / portTICK_RATE_MS);
     }
 
     close_tcp_socket();

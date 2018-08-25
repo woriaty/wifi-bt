@@ -23,8 +23,14 @@ struct get_user_data {
 };
 
 struct cmd_ops {
-	int (*cmd_send)(const char *buff);
+	int (*cmd_send)(int port, const char *buff, int len);
+	char data[1024];
+	int len;		/* data length */
+	int port;
+	char *pdata;	/* private data */
 };
+
+#define container_of(ptr, type, member)		(ptr-(unsigned long)&(type *)0->member)
 
 enum data_type {UART, WIFI_JOIN, WIFI_CH, WIFI_DHCP, WIFI_SSID,\
 				WIFI_ADDR, WIFI_GW, WIFI_NM};
@@ -34,7 +40,7 @@ extern int cmd_state;
 int enter_cmd_state(const char *str, int len);
 int cmd_set_user_data(const char *str, struct get_user_data *user_data);
 void cmd_process(void *pvParameters);
-int cmd_cli(struct cmd_ops *ops, const char *buff);
+int cmd_cli(struct cmd_ops *ops, const char *buff, int len);
 
 
 #endif

@@ -40,7 +40,7 @@ struct cmd_node {
 	char *data;
 };
 
-char *prompt = "$>";
+char *prompt = "\n\r$>";
 
 int cmd_state = 0;
 
@@ -140,12 +140,28 @@ void cmd_process(void *pvParameters)
 	}
 }
 
-int cmd_cli(struct cmd_ops *ops, const char *buff)
+int cmd_cli(struct cmd_ops *ops, const char *buff, int len)
 {
-	int len = strlen(buff);
-	if(!memcmp(&buff[len-1], "\n", strlen("\n"))) {
-		ops->cmd_send(buff);
-		ops->cmd_send(prompt);
+	if(len) {
+		memcpy(&ops->data[ops->len], buff, len);
+		if(!memcmp("\r", &ops->data[ops->len], 1) || !memcmp("\n", &ops->data[ops->len], 1)) {
+			/* send data and next prompt */
+			if(ops->len) {
+				ops->cmd_send(ops->port, "\n\r", 2);
+				ops->cmd_send(ops->port, ops->data, ops->len);
+			}
+			ops->cmd_send(ops->port, prompt, strlen(prompt));
+			memset(ops->data, 0x00, ops->len);
+			ops->len = 0;
+		}
+		else {
+			/* only uart need to send data back */
+			if(ops->pdata)
+				ops->cmd_send(ops->port, buff, len);
+			ops->len += len;
+		}
+		if(ops->len > 1024)
+			ops->len = 0;
 	}
 	return 0;
 }
