@@ -30,7 +30,7 @@ struct cmd_ops {
 	char *pdata;	/* private data */
 };
 
-#define container_of(ptr, type, member)		(ptr-(unsigned long)&(type *)0->member)
+#define container_of(ptr, type, member)		(type *)(ptr-(unsigned long)&((type *)0)->member)
 
 enum data_type {UART, WIFI_JOIN, WIFI_CH, WIFI_DHCP, WIFI_SSID,\
 				WIFI_ADDR, WIFI_GW, WIFI_NM};

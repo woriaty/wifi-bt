@@ -10,18 +10,18 @@
 #include "uart.h"
 
 char *sys_tips = "\
-Welcom to esp32 system!\n \
-You can use these commands to change functions:\n\
-1. set uart b [baudrate]\n \
-2. set apmode ssid [WF01]\n \
-3. set wlan join [4]\n \
-4. set wlan chan [1]\n \
-5. set ip address [192.168.1.1]\n\
-6. set ip gateway [192.168.1.1]\n\
-7. set ip netmask [255.255.255.0]\n\
-8. set ip dhcp [4]\n \
-9. hi\n	\
-Have a nice day!\n";
+\n\rWelcom to esp32 system!\n\r\
+You can use these commands to change functions:\n\r\
+1. set uart b [baudrate]\n\r\
+2. set apmode ssid [WF01]\n\r\
+3. set wlan join [4]\n\r\
+4. set wlan chan [1]\n\r\
+5. set ip address [192.168.1.1]\n\r\
+6. set ip gateway [192.168.1.1]\n\r\
+7. set ip netmask [255.255.255.0]\n\r\
+8. set ip dhcp [4]\n\r\
+9. hi\n\r\
+Have a nice day!\n\r";
 
 char *cmd_entry = "$$$";
 char *cmd_type[] = {"set uart b ",\
@@ -73,49 +73,57 @@ int cmd_set_user_data(const char *str, struct get_user_data *user_data)
 	int int_data = 0;
 	char data_send[50];
 
+	struct cmd_ops *ops = container_of(str, struct cmd_ops, data);
+
 	for(i=0; i<ARRAY_SIZE(cmd_type); i++) {
 		len = strlen(cmd_type[i]);
 		if(!memcmp(cmd_type[i], str, len)) {
 			char_data = str + len;
-			ESP_LOGE(TAG, "Got char data: %s\n", char_data);
+			//ESP_LOGE(TAG, "Got char data: %s\n", char_data);
 			if(i < INT_TYPE_LEN) {
 				int_data = atoi(char_data);
-				ESP_LOGE(TAG, "Got int data: %d\n", int_data);
+				//ESP_LOGE(TAG, "Got int data: %d\n", int_data);
 			}
 			switch(i) {
 			case UART:
 				user_data->uart_buand = int_data;
-				ESP_LOGE(TAG, "uart_buand: %d\n", user_data->uart_buand);
-				sprintf(data_send, "uart_buand: %d\n", user_data->uart_buand);
-				send(udp_socket, data_send, strlen(data_send), 0);
+				sprintf(data_send, "\n\ruart_buand: %d\n\r", user_data->uart_buand);
+				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_JOIN:
 				user_data->wifi_join = int_data;
-				ESP_LOGE(TAG, "wifi_join: %d\n", user_data->wifi_join);
+				sprintf(data_send, "wifi_join: %d\n", user_data->wifi_join);
+				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_CH:
 				user_data->wifi_chan = int_data;
-				ESP_LOGE(TAG, "wifi_chan: %d\n", user_data->wifi_chan);
+				sprintf(data_send, "\n\rwifi_chan: %d\n\r", user_data->wifi_chan);
+				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_DHCP:
 				user_data->wifi_dhcp = int_data;
-				ESP_LOGE(TAG, "wifi_dhcp: %d\n", user_data->wifi_dhcp);
+				sprintf(data_send, "\n\rwifi_dhcp: %d\n\r", user_data->wifi_dhcp);
+				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_SSID:
 				user_data->wifi_ssid = char_data;
-				ESP_LOGE(TAG, "wifi_ssid: %s\n", user_data->wifi_ssid);
+				sprintf(data_send, "\n\rwifi_ssid: %s\n\r", user_data->wifi_ssid);
+				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_ADDR:
 				user_data->wifi_address = char_data;
-				ESP_LOGE(TAG, "wifi_address: %s\n", user_data->wifi_address);
+				sprintf(data_send, "\n\rwifi_address: %s\n\r", user_data->wifi_address);
+				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_GW:
 				user_data->wifi_gateway = char_data;
-				ESP_LOGE(TAG, "wifi_gateway: %s\n", user_data->wifi_gateway);
+				sprintf(data_send, "\n\rwifi_gateway: %s\n\r", user_data->wifi_gateway);
+				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_NM:
 				user_data->wifi_netmask = char_data;
-				ESP_LOGE(TAG, "wifi_netmask: %s\n", user_data->wifi_netmask);
+				sprintf(data_send, "\n\rwifi_netmask: %s\n\r", user_data->wifi_netmask);
+				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			}
 			return i;
@@ -140,6 +148,8 @@ void cmd_process(void *pvParameters)
 	}
 }
 
+struct get_user_data user_data;
+
 int cmd_cli(struct cmd_ops *ops, const char *buff, int len)
 {
 	if(len) {
@@ -149,6 +159,10 @@ int cmd_cli(struct cmd_ops *ops, const char *buff, int len)
 			if(ops->len) {
 				ops->cmd_send(ops->port, "\n\r", 2);
 				ops->cmd_send(ops->port, ops->data, ops->len);
+				/* parse data */
+				if(!memcmp("hi", ops->data, 2))
+					ops->cmd_send(ops->port, sys_tips, strlen(sys_tips));
+				else cmd_set_user_data(ops->data, &user_data);
 			}
 			ops->cmd_send(ops->port, prompt, strlen(prompt));
 			memset(ops->data, 0x00, ops->len);
