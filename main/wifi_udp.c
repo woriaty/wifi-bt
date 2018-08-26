@@ -9,7 +9,6 @@
 
 #include "wifi_udp.h"
 #include "wifi_tcp.h"
-#include "uart.h"
 
 /* FreeRTOS event group to signal when we are connected to WiFi and ready to start UDP test*/
 EventGroupHandle_t udp_event_group;
@@ -63,9 +62,9 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 	return ESP_OK;
 }
 
-//wifiµÄsoftap³õÊ¼»¯
-void wifi_init_softap()
+void wifi_init_softap(void)
 {
+	char *wifi_ssid, *wifi_pwd;
 	udp_event_group = xEventGroupCreate();
 	tcp_event_group = xEventGroupCreate();
 
@@ -78,23 +77,32 @@ void wifi_init_softap()
 
 	wifi_config_t wifi_config = {
 		.ap = {
-				.ssid = AP_SSID,
-				.password = AP_PAW,
-				.ssid_len = 0,
-				.max_connection = EXAMPLE_MAX_STA_CONN,
-				.authmode = WIFI_AUTH_WPA_WPA2_PSK
+			.ssid = AP_SSID,
+			.password = AP_PAW,
+			.ssid_len = 0,
+			.max_connection = EXAMPLE_MAX_STA_CONN,
+			.authmode = WIFI_AUTH_WPA_WPA2_PSK
 		},
 	};
 	if (strlen(AP_PAW) == 0) {
 		wifi_config.ap.authmode = WIFI_AUTH_OPEN;
 	}
 
+	wifi_ssid = nvs_read_str(WIFI_SSID_ST_KEY);
+	if(wifi_ssid) {
+		ESP_LOGI(TAG, "got saved wifi ssid : %s\n", wifi_ssid);
+		/* clear the old ssid, in case we go a shorter one */
+		memset(wifi_config.ap.ssid, 0x00, strlen(&wifi_config.ap.ssid));
+		memcpy(wifi_config.ap.ssid, wifi_ssid, strlen(wifi_ssid));
+	}
+	ESP_LOGI(TAG, "use wifi ssid : %s\n", wifi_config.ap.ssid);
+
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
 	ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
 	ESP_ERROR_CHECK(esp_wifi_start());
 
 	ESP_LOGI(TAG, " Wifi_init_softap finished the SSID: %s password:%s \n",
-	AP_SSID, AP_PAW);
+			AP_SSID, AP_PAW);
 }
 
 //create a udp server socket. return ESP_OK:success ESP_FAIL:error
@@ -169,7 +177,7 @@ void send_recv_data(void *pvParameters)
 			send_Buff_with_UDP(sys_tips, strlen(sys_tips));
 		}
 		if(enter_cmd_state(databuff, len)) {
-			xTaskCreate(cmd_process, "cmd process", 4096, NULL, 5, NULL);
+			//xTaskCreate(cmd_process, "cmd process", 4096, NULL, 5, NULL);
 			break;
 		}
 

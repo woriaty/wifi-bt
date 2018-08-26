@@ -7,7 +7,9 @@
 #include "freertos/event_groups.h"
 #include "cmd.h"
 #include "esp_log.h"
+#include "esp_wifi.h"
 #include "uart.h"
+#include "wifi_bt_storage.h"
 
 char *sys_tips = "\
 \n\rWelcom to esp32 system!\n\r\
@@ -20,7 +22,10 @@ You can use these commands to change functions:\n\r\
 6. set ip gateway [192.168.1.1]\n\r\
 7. set ip netmask [255.255.255.0]\n\r\
 8. set ip dhcp [4]\n\r\
-9. hi\n\r\
+9. save\n\r\
+10. exit\n\r\
+11. reboot\n\r\
+12. hi\n\r\
 Have a nice day!\n\r";
 
 char *cmd_entry = "$$$";
@@ -32,6 +37,9 @@ char *cmd_type[] = {"set uart b ",\
 					"set ip address",\
 					"set ip gateway ",\
 					"set ip netmask ",\
+					"save",\
+					"exit",\
+					"reboot"\
 };
 #define INT_TYPE_LEN	4
 
@@ -60,13 +68,55 @@ int enter_cmd_state(const char *str, int len)
 	return 0;
 }
 
+static int cmd_save_user_data(struct get_user_data *user_data)
+{
+	esp_err_t err;
+
+	if(user_data->wifi_ssid) {
+		err = nvs_write_str(WIFI_SSID_ST_KEY, user_data->wifi_ssid);
+		if(err != ESP_OK) {
+			ESP_LOGI(TAG, "wifi ssid erase error\n\r");
+			return err;
+		}
+		err = nvs_write_str(WIFI_SSID_ST_KEY, WIFI_SSID_ST_KEY);
+		if(err != ESP_OK) {
+			ESP_LOGI(TAG, "wifi ssid set error\n\r");
+			return err;
+		}
+	}
+	if(user_data->wifi_pwd) {
+		err = nvs_write_str(WIFI_PWD_ST_KEY, (const char *)user_data->wifi_pwd);
+		if(err != ESP_OK) {
+			ESP_LOGI(TAG, "wifi pwd set error\n\r");
+			return err;
+		}
+	}
+	if(user_data->wifi_join) {
+		err = nvs_write_i32(WIFI_JOIN_ST_KEY, user_data->wifi_join);
+		if(err != ESP_OK) {
+			ESP_LOGI(TAG, "wifi join set error\n\r");
+			return err;
+		}
+	}
+
+	if(user_data->uart_buand) {
+		err = nvs_write_i32(UART_STORAGE_KEY, user_data->uart_buand);
+		if(err != ESP_OK) {
+			ESP_LOGI(TAG, "uart set error\n\r");
+			return err;
+		}
+	}
+
+	return 0;
+}
+
 /*
  * set user data
- * str: string value which need to process
+ * str: string value which pointer to cmd_ops->data
  * user_data: user data which need to set
  * return the cmd type.
  */
-int cmd_set_user_data(const char *str, struct get_user_data *user_data)
+static int cmd_parse_user_data(const char *str, struct get_user_data *user_data)
 {
 	int len, i;
 	char *char_data = NULL;
@@ -92,7 +142,7 @@ int cmd_set_user_data(const char *str, struct get_user_data *user_data)
 				break;
 			case WIFI_JOIN:
 				user_data->wifi_join = int_data;
-				sprintf(data_send, "wifi_join: %d\n", user_data->wifi_join);
+				sprintf(data_send, "\n\rwifi_join: %d\n\r", user_data->wifi_join);
 				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_CH:
@@ -106,24 +156,36 @@ int cmd_set_user_data(const char *str, struct get_user_data *user_data)
 				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_SSID:
-				user_data->wifi_ssid = char_data;
+				user_data->wifi_ssid = malloc(strlen(char_data));
+				memcpy(user_data->wifi_ssid, char_data, strlen(char_data));
 				sprintf(data_send, "\n\rwifi_ssid: %s\n\r", user_data->wifi_ssid);
 				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_ADDR:
-				user_data->wifi_address = char_data;
+				user_data->wifi_address = malloc(strlen(char_data));
+				memcpy(user_data->wifi_address, char_data, strlen(char_data));
 				sprintf(data_send, "\n\rwifi_address: %s\n\r", user_data->wifi_address);
 				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_GW:
-				user_data->wifi_gateway = char_data;
+				user_data->wifi_gateway = malloc(strlen(char_data));
+				memcpy(user_data->wifi_gateway, char_data, strlen(char_data));
 				sprintf(data_send, "\n\rwifi_gateway: %s\n\r", user_data->wifi_gateway);
 				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_NM:
-				user_data->wifi_netmask = char_data;
+				user_data->wifi_netmask = malloc(strlen(char_data));
+				memcpy(user_data->wifi_netmask, char_data, strlen(char_data));
 				sprintf(data_send, "\n\rwifi_netmask: %s\n\r", user_data->wifi_netmask);
 				ops->cmd_send(ops->port, data_send, strlen(data_send));
+				break;
+			case SAVE:
+				cmd_save_user_data(user_data);
+				break;
+			case EXIT:
+				break;
+			case REBOOT:
+				esp_restart();
 				break;
 			}
 			return i;
@@ -132,23 +194,13 @@ int cmd_set_user_data(const char *str, struct get_user_data *user_data)
 	return -1;
 }
 
-void cmd_process(void *pvParameters)
-{
-	char databuff[1024];
-	int len = 0;
-	struct get_user_data *user_data = malloc(sizeof(struct get_user_data));
-
-	ESP_LOGI(TAG, "%s\n", __func__);
-
-	memset(databuff, EXAMPLE_PACK_BYTE_IS, sizeof(databuff));
-	while(1) {
-		memset(databuff, 0x00, sizeof(databuff));
-		len = recv(udp_socket, databuff, sizeof(databuff), 0);
-		cmd_set_user_data(databuff, user_data);
-	}
-}
-
 struct get_user_data user_data;
+
+int cmd_init(void)
+{
+	memset(&user_data, 0x00, sizeof(struct get_user_data));
+	return 0;
+}
 
 int cmd_cli(struct cmd_ops *ops, const char *buff, int len)
 {
@@ -162,13 +214,13 @@ int cmd_cli(struct cmd_ops *ops, const char *buff, int len)
 				/* parse data */
 				if(!memcmp("hi", ops->data, 2))
 					ops->cmd_send(ops->port, sys_tips, strlen(sys_tips));
-				else cmd_set_user_data(ops->data, &user_data);
+				else cmd_parse_user_data(ops->data, &user_data);
 			}
 			ops->cmd_send(ops->port, prompt, strlen(prompt));
 			memset(ops->data, 0x00, ops->len);
 			ops->len = 0;
 		}
-		else {
+		else if(memcmp("\b", buff, 1)){
 			/* only uart need to send data back */
 			if(ops->pdata)
 				ops->cmd_send(ops->port, buff, len);

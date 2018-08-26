@@ -5,13 +5,15 @@
 #include "freertos/event_groups.h"
 #include "esp_log.h"
 #include "esp_err.h"
-#include "nvs_flash.h"
+#include "esp_wifi.h"
 
 #include "wifi_tcp.h"
 #include "wifi_udp.h"
 #include "bt_server.h"
 #include "uart.h"
 #include "cmd.h"
+
+#include "nvs_flash.h"
 
 void udp_conn(void *pvParameters)
 {
@@ -69,9 +71,12 @@ void udp_conn(void *pvParameters)
 	vTaskDelete(NULL);
 }
 
+
+
 void app_main(void)
 {
 	esp_err_t ret;
+
 	struct sys_data *wifi_bt_data = malloc(sizeof(struct sys_data));
 	wifi_bt_data->wifi_tcp_enabled = DISABLE;
 	wifi_bt_data->wifi_udp_enabled = DISABLE;
@@ -86,6 +91,9 @@ void app_main(void)
 	        ret = nvs_flash_init();
 	}
 	ESP_ERROR_CHECK( ret );
+
+	cmd_init();
+
 	uart_event_group = xEventGroupCreate();
 	wifi_init_softap();
 	ESP_LOGI(TAG, "wifi bt Server Demo ...\n\r");

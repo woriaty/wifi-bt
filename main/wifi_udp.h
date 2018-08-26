@@ -5,6 +5,9 @@
 extern "C" {
 #endif
 
+#include "esp_wifi.h"
+#include "uart.h"
+
 extern int udp_socket;
 
 //全局声明：是否server服务器或者station客户端 ------> true为服务器，false为客户端
