@@ -19,7 +19,7 @@ extern "C" {
 
 #define TCP_SERVER_CLIENT_OPTION true  //true will start softap and create tcp server
 
-#define TCP_PORT 8266
+#define TCP_PORT 2000
 
 /* FreeRTOS event group to signal when we are connected to wifi*/
 extern EventGroupHandle_t tcp_event_group;

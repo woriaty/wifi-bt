@@ -51,17 +51,22 @@ void uart_task(void *pvParameters)
 	while(1) {
 		//Read data from UART
 		int len = uart_read_bytes(uart_num, data, BUF_SIZE, 20 / portTICK_RATE_MS);
-		cmd_cli(&uart_cmd_ops, (const char *)data, len);
-		/*
-		//Write data to UDP
-		if(wifi_bt_data->wifi_udp_enabled)
-		send_Buff_with_UDP((const char*) data, len);
-		if(wifi_bt_data->wifi_tcp_enabled)
-		send_buff_with_tcp((const char*) data, len);
-		if(len && connector_data)
-		esp_spp_write(connector_data->srv_open.handle, len, data);
-		//uart_write_bytes(uart_num, (const char*) data, len);
-		*/
+		if (cmd_data.current_state == CMD_NORMAL) {
+			cmd_entry(&uart_cmd_ops, (const char *)data);
+			/*
+			//Write data to UDP
+			if(wifi_bt_data->wifi_udp_enabled)
+			send_Buff_with_UDP((const char*) data, len);
+			*/
+			if(wifi_bt_data->wifi_tcp_enabled)
+				send_buff_with_tcp((const char*) data, len);
+			if(len && connector_data)
+				esp_spp_write(connector_data->srv_open.handle, len, data);
+			//uart_write_bytes(uart_num, (const char*) data, len);
+		} else if (cmd_data.current_state == CMD_CMD) {
+			cmd_cli(&uart_cmd_ops, (const char *)data, len);
+		}
+
 		vTaskDelay(300 / portTICK_RATE_MS);
 	}
 }

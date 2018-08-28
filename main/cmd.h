@@ -4,14 +4,11 @@
 #include "wifi_bt_storage.h"
 #include "wifi_udp.h"
 #include "esp_system.h"
+#include "list.h"
 
 #define TAG "$>"
-
-extern char *prompt;
-
 #define ARRAY_SIZE(array)	sizeof(array)/sizeof(array[0])
 #define TO_STR(a)			#a
-enum cmd_state { CMD_NORMAL, CMD_CMD };
 
 struct get_user_data {
 	int uart_buand;
@@ -33,16 +30,20 @@ struct cmd_ops {
 	char *pdata;	/* private data */
 };
 
-#define container_of(ptr, type, member)		(type *)(ptr-(unsigned long)&((type *)0)->member)
+struct cmd_node {
+	int current_state;
+	char *data;
+};
 
+enum cmd_state { CMD_NORMAL, CMD_CMD };
 enum data_type {UART, WIFI_JOIN, WIFI_CH, WIFI_DHCP, WIFI_SSID,\
 				WIFI_ADDR, WIFI_GW, WIFI_NM, SAVE, EXIT, REBOOT};
 
-extern int cmd_state;
+extern char *prompt;
 extern struct get_user_data user_data;
+extern struct cmd_node cmd_data;
 
-int enter_cmd_state(const char *str, int len);
-//int cmd_set_user_data(const char *str, struct get_user_data *user_data);
+void cmd_entry(struct cmd_ops *ops, const char *str);
 int cmd_cli(struct cmd_ops *ops, const char *buff, int len);
 int cmd_init(void);
 

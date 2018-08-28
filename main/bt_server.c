@@ -34,7 +34,7 @@ static const esp_spp_mode_t esp_spp_mode = ESP_SPP_MODE_CB;
 static const esp_spp_sec_t sec_mask = ESP_SPP_SEC_AUTHENTICATE;
 static const esp_spp_role_t role_slave = ESP_SPP_ROLE_SLAVE;
 
-esp_spp_cb_param_t *connector_data;
+esp_spp_cb_param_t *connector_data = NULL;
 
 static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
 {
@@ -50,7 +50,8 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         break;
     case ESP_SPP_OPEN_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_OPEN_EVT");
-        free(connector_data);
+        if(connector_data)
+        	free(connector_data);
         break;
     case ESP_SPP_CLOSE_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_CLOSE_EVT");
@@ -77,6 +78,7 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
     case ESP_SPP_SRV_OPEN_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_SRV_OPEN_EVT");
         esp_spp_write(param->srv_open.handle, sizeof(start_str), (uint8_t *)start_str);
+        connector_data = malloc(sizeof(esp_spp_cb_param_t));
         memcpy(connector_data, param, sizeof(*param));
         ESP_LOGI(SPP_TAG, "got handle: %d\n", connector_data->srv_open.handle);
         xEventGroupSetBits(uart_event_group, UART_CONNECTED_BIT);
@@ -129,7 +131,6 @@ void esp_bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
 void bt_server_init(void)
 {
 	esp_err_t ret;
-	connector_data = malloc(sizeof(esp_spp_cb_param_t));
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     if ((ret = esp_bt_controller_init(&bt_cfg)) != ESP_OK) {
         ESP_LOGE(SPP_TAG, "%s initialize controller failed: %s\n", __func__, esp_err_to_name(ret));
