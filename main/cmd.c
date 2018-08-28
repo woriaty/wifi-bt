@@ -28,7 +28,6 @@ You can use these commands to change functions:\n\r\
 12. hi\n\r\
 Have a nice day!\n\r";
 
-char *cmd_entry = "$$$";
 char *cmd_type[] = {"set uart b ",\
 					"set wlan join ",\
 					"set wlan chan ",\
@@ -43,11 +42,6 @@ char *cmd_type[] = {"set uart b ",\
 };
 #define INT_TYPE_LEN	4
 
-struct cmd_node {
-	int current_state;
-	char *data;
-};
-
 char *prompt = "\n\r$>";
 
 int cmd_state = 0;
@@ -59,13 +53,25 @@ int get_cmd_header(const char *str)
 	return 0;
 }
 
-int enter_cmd_state(const char *str, int len)
+void cmd_entry(struct cmd_ops *ops, const char *str)
 {
-	if(!memcmp(str, cmd_entry, len)) {
-		ESP_LOGE(TAG, "Enter command mode..\n");
-		return 1;
+	static int cmd_entry_count = 0;
+	char *cmd_entry_prompt = "\n\rEnter Command Mode\n\r";
+	if(!memcmp(str, "$", 1)) {
+		cmd_entry_count ++;
 	}
-	return 0;
+	if(cmd_entry_count >= 3 && cmd_data.current_state != CMD_CMD) {
+		cmd_data.current_state = CMD_CMD;
+		ops->cmd_send(ops->port, cmd_entry_prompt, strlen(cmd_entry_prompt));
+		cmd_entry_count = 0;
+	}
+}
+
+static void cmd_exit(struct cmd_ops *ops)
+{
+	char *cmd_exit_prompt = "\n\rExit Command Mode\n\r";
+	cmd_data.current_state = CMD_NORMAL;
+	ops->cmd_send(ops->port, cmd_exit_prompt, strlen(cmd_exit_prompt));
 }
 
 static int cmd_save_user_data(struct get_user_data *user_data)
@@ -75,14 +81,12 @@ static int cmd_save_user_data(struct get_user_data *user_data)
 	if(user_data->wifi_ssid) {
 		err = nvs_write_str(WIFI_SSID_ST_KEY, user_data->wifi_ssid);
 		if(err != ESP_OK) {
-			ESP_LOGI(TAG, "wifi ssid erase error\n\r");
-			return err;
-		}
-		err = nvs_write_str(WIFI_SSID_ST_KEY, WIFI_SSID_ST_KEY);
-		if(err != ESP_OK) {
 			ESP_LOGI(TAG, "wifi ssid set error\n\r");
 			return err;
 		}
+		/* free data */
+		free(user_data->wifi_ssid);
+		user_data->wifi_ssid = NULL;
 	}
 	if(user_data->wifi_pwd) {
 		err = nvs_write_str(WIFI_PWD_ST_KEY, (const char *)user_data->wifi_pwd);
@@ -116,23 +120,24 @@ static int cmd_save_user_data(struct get_user_data *user_data)
  * user_data: user data which need to set
  * return the cmd type.
  */
-static int cmd_parse_user_data(const char *str, struct get_user_data *user_data)
+int cmd_parse_user_data(const char *ops_data, struct get_user_data *user_data)
 {
 	int len, i;
 	char *char_data = NULL;
 	int int_data = 0;
 	char data_send[50];
 
-	struct cmd_ops *ops = container_of(str, struct cmd_ops, data);
+	struct cmd_ops *ops = container_of(ops_data, struct cmd_ops, data);
 
 	for(i=0; i<ARRAY_SIZE(cmd_type); i++) {
 		len = strlen(cmd_type[i]);
-		if(!memcmp(cmd_type[i], str, len)) {
-			char_data = str + len;
-			//ESP_LOGE(TAG, "Got char data: %s\n", char_data);
+		if(!memcmp(cmd_type[i], ops_data, len)) {
+			char_data = ops_data + len;
+			ESP_LOGE(TAG, "Got char data: %s\n", char_data);
+			ESP_LOGE(TAG, "Got char data len: %d\n", strlen(char_data));
 			if(i < INT_TYPE_LEN) {
 				int_data = atoi(char_data);
-				//ESP_LOGE(TAG, "Got int data: %d\n", int_data);
+				ESP_LOGE(TAG, "Got int data: %d\n", int_data);
 			}
 			switch(i) {
 			case UART:
@@ -157,48 +162,123 @@ static int cmd_parse_user_data(const char *str, struct get_user_data *user_data)
 				break;
 			case WIFI_SSID:
 				user_data->wifi_ssid = malloc(strlen(char_data));
-				memcpy(user_data->wifi_ssid, char_data, strlen(char_data));
+				strcpy(user_data->wifi_ssid, char_data);
 				sprintf(data_send, "\n\rwifi_ssid: %s\n\r", user_data->wifi_ssid);
 				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_ADDR:
 				user_data->wifi_address = malloc(strlen(char_data));
-				memcpy(user_data->wifi_address, char_data, strlen(char_data));
+				strcpy(user_data->wifi_address, char_data);
 				sprintf(data_send, "\n\rwifi_address: %s\n\r", user_data->wifi_address);
 				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_GW:
 				user_data->wifi_gateway = malloc(strlen(char_data));
-				memcpy(user_data->wifi_gateway, char_data, strlen(char_data));
+				strcpy(user_data->wifi_gateway, char_data);
 				sprintf(data_send, "\n\rwifi_gateway: %s\n\r", user_data->wifi_gateway);
 				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case WIFI_NM:
 				user_data->wifi_netmask = malloc(strlen(char_data));
-				memcpy(user_data->wifi_netmask, char_data, strlen(char_data));
+				strcpy(user_data->wifi_netmask, char_data);
 				sprintf(data_send, "\n\rwifi_netmask: %s\n\r", user_data->wifi_netmask);
 				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case SAVE:
 				cmd_save_user_data(user_data);
+				sprintf(data_send, "\n\rData saved\n\r");
+				ops->cmd_send(ops->port, data_send, strlen(data_send));
 				break;
 			case EXIT:
+				cmd_exit(ops);
 				break;
 			case REBOOT:
 				esp_restart();
+				break;
+			default:
 				break;
 			}
 			return i;
 		}
 	}
+	sprintf(data_send, "\n\rCommand not found!\n\r");
+	ops->cmd_send(ops->port, data_send, strlen(data_send));
 	return -1;
 }
 
 struct get_user_data user_data;
 
+typedef struct {
+	char *cmd;
+	char *data;
+	int data_type;
+	struct list_head *list;
+}CMD_TYPE;
+
+enum data_type {DATA_CHAR, DATA_INT};
+struct list_head cmd_list_head;
+
+CMD_TYPE wifi_ssid_cmd = {
+		.cmd = "set apmode ssid ",
+		.data_type = DATA_INT,
+};
+
+int cmd_register(CMD_TYPE *cmd)
+{
+	list_init(cmd->list);
+	cmd->data = NULL;
+	list_add_tail(&cmd_list_head, cmd->list);
+	return 0;
+}
+
+int cmd_parse(struct list_head *head, char *buff)
+{
+	CMD_TYPE *node = NULL;
+	char *get_data = NULL;
+	int len = 0;
+	while (head->next != NULL) {
+		node = list_entry(head->next, CMD_TYPE, list);
+		len = strlen(node->cmd);
+		if (!memcmp(node->cmd, buff, len)) {
+			get_data = buff + len;
+			if(node->data_type == DATA_CHAR) {
+				node->data = malloc(strlen(get_data));
+				strcpy(node->data, get_data);
+			}
+			else {
+				node->data = malloc(4);	//need 4 byte memory to save int data
+				memcpy(node->data, get_data, 4);
+			}
+			return 0;
+		}
+	}
+	return -1;
+}
+
+int cmd_save(struct list_head *head)
+{
+	CMD_TYPE *node = NULL;
+	int len = 0;
+	while (head->next != NULL) {
+		node = list_entry(head->next, CMD_TYPE, list);
+		if(!node->data) {
+			if(node->data_type == DATA_CHAR) {
+				err = nvs_write_str(WIFI_SSID_ST_KEY, node->data);
+				if(err != ESP_OK) {
+					ESP_LOGI(TAG, "wifi ssid set error\n\r");
+					return err;
+				}
+			}
+		}
+	}
+	return 0;
+}
+
 int cmd_init(void)
 {
 	memset(&user_data, 0x00, sizeof(struct get_user_data));
+	memset(&cmd_data, 0x00, sizeof(struct cmd_node));
+	cmd_register(&wifi_ssid_cmd);
 	return 0;
 }
 
@@ -225,6 +305,12 @@ int cmd_cli(struct cmd_ops *ops, const char *buff, int len)
 			if(ops->pdata)
 				ops->cmd_send(ops->port, buff, len);
 			ops->len += len;
+		}
+		else {
+			/* only uart need to send data back */
+			if(ops->pdata)
+				ops->cmd_send(ops->port, buff, len);
+			ops->len -= len;
 		}
 		if(ops->len > 1024)
 			ops->len = 0;

@@ -71,9 +71,6 @@ void send_data(void *pvParameters)
             }
         }
 
-#if EXAMPLE_ESP_TCP_PERF_TX && EXAMPLE_ESP_TCP_DELAY_INFO
-        gettimeofday(&tv_finish, NULL);
-#endif /*EXAMPLE_ESP_TCP_PERF_TX && EXAMPLE_ESP_TCP_DELAY_INFO*/
         if (g_total_data > 0)
         {
 #if EXAMPLE_ESP_TCP_PERF_TX && EXAMPLE_ESP_TCP_DELAY_INFO
@@ -126,10 +123,10 @@ void recv_data(void *pvParameters)
 {
     int len = 0;
     char databuff[100];
-    char *hi = "hello\n";
+    char *hi = "*HELLO*\n\r";
 
     send(connect_socket, hi, strlen(hi), 0);
-    send(connect_socket, prompt, strlen(prompt), 0);
+    //send(connect_socket, prompt, strlen(prompt), 0);
     while (1)
     {
     	//每次接收都要清空接收数组
@@ -141,6 +138,7 @@ void recv_data(void *pvParameters)
             ESP_LOGI(TAG, "recvData: %s", databuff);
             tcp_cmd_ops.port = connect_socket;
             cmd_cli(&tcp_cmd_ops, databuff, len);
+            len = 0;
         }
         else {
             show_socket_error_reason("recv_data", connect_socket);

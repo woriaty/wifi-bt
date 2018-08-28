@@ -176,10 +176,12 @@ void send_recv_data(void *pvParameters)
 		if(!strcmp(databuff, "hi")) {
 			send_Buff_with_UDP(sys_tips, strlen(sys_tips));
 		}
+		/*
 		if(enter_cmd_state(databuff, len)) {
 			//xTaskCreate(cmd_process, "cmd process", 4096, NULL, 5, NULL);
 			break;
 		}
+		*/
 
 		if (len > 0) {
 			total_data += len;
