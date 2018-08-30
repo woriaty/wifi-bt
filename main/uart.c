@@ -51,6 +51,7 @@ void uart_task(void *pvParameters)
 	while(1) {
 		//Read data from UART
 		int len = uart_read_bytes(uart_num, data, BUF_SIZE, 20 / portTICK_RATE_MS);
+
 		if (cmd_data.current_state == CMD_NORMAL) {
 			cmd_entry(&uart_cmd_ops, (const char *)data);
 			/*
@@ -67,6 +68,6 @@ void uart_task(void *pvParameters)
 			cmd_cli(&uart_cmd_ops, (const char *)data, len);
 		}
 
-		vTaskDelay(300 / portTICK_RATE_MS);
+		//vTaskDelay(300 / portTICK_RATE_MS);
 	}
 }

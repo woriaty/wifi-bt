@@ -158,7 +158,6 @@ void send_recv_data(void *pvParameters)
 
 	int len;
 	char databuff[1024];
-	struct get_user_data *user_data = malloc(sizeof(struct get_user_data));
 
 	socklen = sizeof(remote_addr);
 	memset(databuff, EXAMPLE_PACK_BYTE_IS, sizeof(databuff));

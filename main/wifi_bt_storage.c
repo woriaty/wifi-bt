@@ -88,10 +88,12 @@ esp_err_t nvs_write_str(const char *key, const char *str)
     	return err;
 
     // Write
-    ESP_LOGI(TAG, "%s: write string: %s\n", key, str);
+    //ESP_LOGI(TAG, "%s: write string: %s\n", key, str);
     err = nvs_set_str(my_handle, key, str);
     if (err != ESP_OK)
     	return err;
+
+    //ESP_LOGI(TAG, "%s: %d\n", __func__, __LINE__);
 
     // Commit written value.
     // After setting any values, nvs_commit() must be called to ensure changes are written
@@ -100,6 +102,8 @@ esp_err_t nvs_write_str(const char *key, const char *str)
     err = nvs_commit(my_handle);
     if (err != ESP_OK)
     	return err;
+
+    //ESP_LOGI(TAG, "%s: %d\n", __func__, __LINE__);
 
     // Close
     nvs_close(my_handle);

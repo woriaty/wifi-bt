@@ -94,6 +94,8 @@ void app_main(void)
 
 	cmd_init();
 
+	ESP_LOGI(TAG, "%s: %d\n", __func__, __LINE__);
+
 	uart_event_group = xEventGroupCreate();
 	wifi_init_softap();
 	ESP_LOGI(TAG, "wifi bt Server Demo ...\n\r");

@@ -14,6 +14,11 @@
 #define WIFI_SSID_ST_KEY	"wifi_ssid_st"
 #define WIFI_PWD_ST_KEY		"wifi_pwd_st"
 #define WIFI_JOIN_ST_KEY	"wifi_join_st"
+#define WIFI_CHAN_ST_KEY	"wifi_ssid_st"
+#define WIFI_DHCP_ST_KEY	"wifi_dhcp_st"
+#define WIFI_ADDR_ST_KEY	"wifi_addr_st"
+#define WIFI_GATE_ST_KEY	"wifi_gate_st"
+#define WIFI_MASK_ST_KEY	"wifi_mask_st"
 
 
 char *nvs_read_str(const char *key);

@@ -33,7 +33,7 @@ static void list_del_entry(struct list_head *prev,struct list_head *next)
 /*
  *	remove entry node from list
  */
-void list_remove(struct list_head *entry)
+void list_del(struct list_head *entry)
 {
 	list_del_entry(entry->prev,entry->next);
 }

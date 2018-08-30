@@ -10,18 +10,6 @@
 #define ARRAY_SIZE(array)	sizeof(array)/sizeof(array[0])
 #define TO_STR(a)			#a
 
-struct get_user_data {
-	int uart_buand;
-	int wifi_join;
-	int wifi_chan;
-	int wifi_dhcp;
-	char *wifi_ssid;
-	char *wifi_pwd;
-	char *wifi_address;
-	char *wifi_gateway;
-	char *wifi_netmask;
-};
-
 struct cmd_ops {
 	int (*cmd_send)(int port, const char *buff, int len);
 	char data[1024];
@@ -35,9 +23,24 @@ struct cmd_node {
 	char *data;
 };
 
+typedef struct {
+	char *cmd;
+	char *data;
+	int data_type;
+	char *id;
+	void (*pfn)(struct list_head *head, const char *ops_data);
+	struct list_head list;
+} CMD_TYPE;
+
+struct cmd_table {
+	char *cmd;
+	int data_type;
+	char *id;
+	void (*pfn)(struct list_head *head, const char *ops_data);
+};
+
 enum cmd_state { CMD_NORMAL, CMD_CMD };
-enum data_type {UART, WIFI_JOIN, WIFI_CH, WIFI_DHCP, WIFI_SSID,\
-				WIFI_ADDR, WIFI_GW, WIFI_NM, SAVE, EXIT, REBOOT};
+enum cmd_data_type {DATA_CHAR, DATA_INT, DATA_NONE};
 
 extern char *prompt;
 extern struct get_user_data user_data;

@@ -145,7 +145,7 @@ void recv_data(void *pvParameters)
             //g_rxtx_need_restart = true;
             break;
         }
-        vTaskDelay(300 / portTICK_RATE_MS);
+        //vTaskDelay(300 / portTICK_RATE_MS);
     }
 
     close_tcp_socket();
